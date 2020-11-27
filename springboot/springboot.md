@@ -58,6 +58,16 @@
   - [6、RestfulCRUD](#6restfulcrud)
   - [7 错误处理机制](#7-%E9%94%99%E8%AF%AF%E5%A4%84%E7%90%86%E6%9C%BA%E5%88%B6)
   - [8 配置嵌入式Servlet容器](#8-%E9%85%8D%E7%BD%AE%E5%B5%8C%E5%85%A5%E5%BC%8Fservlet%E5%AE%B9%E5%99%A8)
+    - [1）如何定制和修改Servlet容器的相关配置](#1%E5%A6%82%E4%BD%95%E5%AE%9A%E5%88%B6%E5%92%8C%E4%BF%AE%E6%94%B9servlet%E5%AE%B9%E5%99%A8%E7%9A%84%E7%9B%B8%E5%85%B3%E9%85%8D%E7%BD%AE)
+    - [2）注册Servlet三大组件【Servlet、Filter、Listener】](#2%E6%B3%A8%E5%86%8Cservlet%E4%B8%89%E5%A4%A7%E7%BB%84%E4%BB%B6servletfilterlistener)
+    - [3) 替换为其他嵌入式Servlet容器](#3-%E6%9B%BF%E6%8D%A2%E4%B8%BA%E5%85%B6%E4%BB%96%E5%B5%8C%E5%85%A5%E5%BC%8Fservlet%E5%AE%B9%E5%99%A8)
+    - [4）嵌入式Servlet容器自动配置原理](#4%E5%B5%8C%E5%85%A5%E5%BC%8Fservlet%E5%AE%B9%E5%99%A8%E8%87%AA%E5%8A%A8%E9%85%8D%E7%BD%AE%E5%8E%9F%E7%90%86)
+  - [9 使用外置的Servlet容器](#9-%E4%BD%BF%E7%94%A8%E5%A4%96%E7%BD%AE%E7%9A%84servlet%E5%AE%B9%E5%99%A8)
+- [五 Docker](#%E4%BA%94-docker)
+  - [1、简介](#1%E7%AE%80%E4%BB%8B)
+  - [2、核心概念](#2%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5)
+  - [3、安装docker](#3%E5%AE%89%E8%A3%85docker)
+  - [4、docker常用命令&操作](#4docker%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4%E6%93%8D%E4%BD%9C)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -1743,7 +1753,7 @@ public class MyErrorAttributes extends DefaultErrorAttributes {
 
 SpringBoot默认使Tomcat作为嵌入式的Servlet容器
 
-1）如何定制和修改Servlet容器的相关配置
+### 1）如何定制和修改Servlet容器的相关配置
 
 ​	1、修改和server有关的配置（ServerProperties）
 
@@ -1778,5 +1788,284 @@ server.tomcat.xxx
 
 
 
-2）SpringBoot能不能支持其他的Servlet容器
+### 2）注册Servlet三大组件【Servlet、Filter、Listener】
+
+由于SpringBoot默认是以jar包的方式启动嵌入式的Servlet容器来启动SpringBoot的web应用，没有web.xml文件
+
+注册三大组件用以下方式
+
+* ServletRegistrationBean
+
+```java
+// 注册三大组件
+    @Bean
+    public ServletRegistrationBean myServlet() {
+        ServletRegistrationBean registrationBean = new ServletRegistrationBean(new MyServlet(),"/myServlet");
+        return registrationBean;
+    }
+```
+
+* FilterRegistrationBean
+
+```java
+@Bean
+    public FilterRegistrationBean myFilter() {
+        FilterRegistrationBean registrationBean = new FilterRegistrationBean();
+        registrationBean.setFilter(new MyFilter());
+        registrationBean.setUrlPatterns(Arrays.asList("/hello","/myServlet"));
+        return registrationBean;
+    }
+```
+
+* ServletListenerRegistrationBean
+
+```java
+@Bean
+    public ServletListenerRegistrationBean myListener() {
+        ServletListenerRegistrationBean<MyListener> registrationBean = new ServletListenerRegistrationBean<>(new MyListener());
+        return registrationBean;
+    }
+```
+
+SpringBoot帮我们自动SpringMVC的时候，自动的注册SpringMVC的前端控制器；DispatcherServlet
+
+```java
+@Bean(
+            name = {"dispatcherServletRegistration"}
+        )
+        @ConditionalOnBean(
+            value = {DispatcherServlet.class},
+            name = {"dispatcherServlet"}
+        )
+        public DispatcherServletRegistrationBean dispatcherServletRegistration(DispatcherServlet dispatcherServlet, WebMvcProperties webMvcProperties, ObjectProvider<MultipartConfigElement> multipartConfig) {
+            DispatcherServletRegistrationBean registration = new DispatcherServletRegistrationBean(dispatcherServlet, webMvcProperties.getServlet().getPath());
+  // 默认拦截： / 所有请求；包括静态资源,但是不拦截jsp请求； /* 会拦截jsp
+  // 可以通过server.servletPath来修改SpringMVC前端控制器默认拦截的请求路径
+            registration.setName("dispatcherServlet");
+            registration.setLoadOnStartup(webMvcProperties.getServlet().getLoadOnStartup());
+            multipartConfig.ifAvailable(registration::setMultipartConfig);
+            return registration;
+        }
+```
+
+### 3) 替换为其他嵌入式Servlet容器
+
+默认支持：
+
+Tomcat
+
+```xml
+<dependency>
+   <groupId>org.springframework.boot</groupId>
+   <artifactId>spring-boot-starter-web</artifactId>
+  引入wen模块默认就是使用嵌入式的Tomcat作为Servlet容器
+</dependency>
+```
+
+
+
+Jetty
+
+```xml
+ <!-- 引入web模块 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- 引入其他的Servlet容器 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jetty</artifactId>
+        </dependency>
+```
+
+Undertow
+
+```xml
+<!-- 引入web模块 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- 引入其他的Servlet容器 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-undertow</artifactId>
+        </dependency>
+```
+
+### 4）嵌入式Servlet容器自动配置原理
+
+**ServletWebServerFactoryAutoConfiguration** : 嵌入式的Servlet容器自动配置
+
+```java
+@Configuration(
+    proxyBeanMethods = false
+)
+@AutoConfigureOrder(-2147483648)
+@ConditionalOnClass({ServletRequest.class})
+@ConditionalOnWebApplication(
+    type = Type.SERVLET
+)
+@EnableConfigurationProperties({ServerProperties.class})
+@Import({ServletWebServerFactoryAutoConfiguration.BeanPostProcessorsRegistrar.class, EmbeddedTomcat.class, EmbeddedJetty.class, EmbeddedUndertow.class}) // 导入三大嵌入式组件
+public class ServletWebServerFactoryAutoConfiguration {
+    public ServletWebServerFactoryAutoConfiguration() {
+    }
+```
+
+3、以**TomcatServletWebServerFactoryCustomizer** 为例
+
+```java
+public class TomcatServletWebServerFactoryCustomizer implements WebServerFactoryCustomizer<TomcatServletWebServerFactory>, Ordered {
+    private final ServerProperties serverProperties;
+
+    public TomcatServletWebServerFactoryCustomizer(ServerProperties serverProperties) {
+        this.serverProperties = serverProperties;
+    }
+
+    public int getOrder() {
+        return 0;
+    }
+
+    public void customize(TomcatServletWebServerFactory factory) {
+        Tomcat tomcatProperties = this.serverProperties.getTomcat();
+        if (!ObjectUtils.isEmpty(tomcatProperties.getAdditionalTldSkipPatterns())) {
+            factory.getTldSkipPatterns().addAll(tomcatProperties.getAdditionalTldSkipPatterns());
+        }
+
+        if (tomcatProperties.getRedirectContextRoot() != null) {
+            this.customizeRedirectContextRoot(factory, tomcatProperties.getRedirectContextRoot());
+        }
+
+        this.customizeUseRelativeRedirects(factory, tomcatProperties.isUseRelativeRedirects());
+        factory.setDisableMBeanRegistry(!tomcatProperties.getMbeanregistry().isEnabled());
+    }
+
+    private void customizeRedirectContextRoot(ConfigurableTomcatWebServerFactory factory, boolean redirectContextRoot) {
+        factory.addContextCustomizers(new TomcatContextCustomizer[]{(context) -> {
+            context.setMapperContextRootRedirectEnabled(redirectContextRoot);
+        }});
+    }
+
+    private void customizeUseRelativeRedirects(ConfigurableTomcatWebServerFactory factory, boolean useRelativeRedirects) {
+        factory.addContextCustomizers(new TomcatContextCustomizer[]{(context) -> {
+            context.setUseRelativeRedirects(useRelativeRedirects);
+        }});
+    }
+}
+```
+
+4、我们对嵌入式容器的配置修改是怎么生效的？
+
+```
+Serverproperties、ServletWebServerFactoryCustomizer
+```
+
+5、嵌入式Servlet容器启动原理
+
+什么时候创建嵌入式的Servlet容器工厂？什么时候获取嵌入式的Servlet容器并启动Tomcat
+
+获取嵌入式的Servlet容器工厂：
+
+1）SpringBoot应用启动运行run方法
+
+2）refreshContext(context);SpringBoot刷新IOC容器【创建IOC容器对象，并初始化容器，创建容器中的每一个组件】；如果是web应用创建**AnnotationConfigEmbeddedWebApplicationContext**，否则 **AnnotationConfigApplicationContext**
+
+3）refresh(context)刷新刚才创建好的ioc容器
+
+4）onRefresh() web的ioc容器重写了onRefresh方法
+
+5）webioc容器会创建嵌入式的Servlet容器 **createEmbeddedServletContainer()**
+
+6）获取嵌入式的Servlet容器工厂	
+
+ServletWebServerFactory factory = getWebServerFactory();
+
+## 9 使用外置的Servlet容器
+
+嵌入式Servlet容器：
+
+​		优点：简单、便携；
+
+​		缺点：默认不支持JSP、优化定制比较复杂（使用定制器【ServerProperties、自定义ServletWebServerFactoryCustomizer】，自己编写嵌入式Servlet容器的创建工厂）
+
+
+
+# 五 Docker
+
+## 1、简介
+
+Docker是一个开源的应用容器引擎
+
+Docker支持将软件编译成一个镜像；然后在镜像中各种软件做好配置，将镜像发布出去，其他使用者可以直接使用这个镜像
+
+运行中的这个镜像成为容器，容器启动是非常快的
+
+## 2、核心概念
+
+docker主机(Host)：安装了Docker程序的机器（Docker直接安装在操作系统之上）；
+
+docker客户端(Client)：连接docker主机进行操作；
+
+docker仓库(Registry)：用来保存各种打包好的软件镜像；
+
+docker镜像(images)：软件打包好的镜像；放在docker仓库中
+
+docker容器(Container)：镜像启动后的实例称为一个容器
+
+使用docker步骤：
+
+（1）安装docker （wget -qO- get.docker.com | bash）
+
+（2）去docker仓库找到这个软件对应的镜像
+
+（3）使用docker运行这个镜像，这个镜像就会生成一个docker容器
+
+（4）对容器的启动停止就是对软件的启动
+
+## 3、安装docker
+
+1）安装linux虚拟机
+
+​	VMWare VirtualBox
+
+2）在linux虚拟机上安装docker
+
+`wget -qO- get.docker.com | bash`
+
+## 4、docker常用命令&操作
+
+1）镜像操作
+
+```bash
+docker images // 查看本地所有镜像
+docker rmi images id // 删除本地镜像
+```
+
+2）容器操作
+
+```bash
+docker search mysql // 搜索镜像
+docker pull mysql // 拉取镜像
+docker run --name mysql -d mysql:latest // 根据镜像启动容器
+docker ps // 查看运行中的容器
+
+docker stop 容器的id
+docker container ps // 查看所有容器
+```
 
