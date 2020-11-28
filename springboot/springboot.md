@@ -2065,7 +2065,36 @@ docker pull mysql // 拉取镜像
 docker run --name mysql -d mysql:latest // 根据镜像启动容器
 docker ps // 查看运行中的容器
 
-docker stop 容器的id
-docker container ps // 查看所有容器
+docker stop 容器的id // 停止运行中的容器
+docker ps -a // 查看所有容器
+docker rm 容器id   // 删除这个容器
+docker start 容器id // 启动容器
+
+docker run -d -p 8080:8080 tomcat // -d：后台运行 -p：将主机的端口映射到容器的一个端口 主机端口：容器内部的端口
+
+docker logs container-name/container-id
 ```
+
+[更多docker命令](https://docs.docker.com/engine/reference/commandline/docker/)
+
+3）安装MySQL示例
+
+```bash
+docker pull mysql
+docker run -p 3306:3306 --name mysql -e MYSQL_ROOT_PASSWORD=xxxxxx -d mysql  // 启动MySQL必须指定密码/用户/端口
+```
+
+几个其他的高级操作
+
+```shell
+docker run --name some-mysql -v /my/custom:/etc/mysql/conf.d -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:tag
+把主机的/my/custom文件夹挂载到 mysqldocker容器的/etc/mysql/conf.d文件夹里面
+改mysql的配置文件就只需要把mysql配置文件放在主机的/my/custom/目录
+
+docker run --name some-mysql -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:tag --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci // 定义不使用cnf配置文件
+```
+
+
+
+# 六、SpringBoot与数据访问
 
