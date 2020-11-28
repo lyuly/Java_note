@@ -2098,3 +2098,37 @@ docker run --name some-mysql -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:tag --
 
 # 六、SpringBoot与数据访问
 
+## 1、JDBC
+
+```xml
+<dependency>
+		<groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-jdbc</artifactId>
+</dependency>
+
+<dependency>
+    <groupId>mysql</groupId>
+    <artifactId>mysql-connector-java</artifactId>
+    <scope>runtime</scope>
+</dependency>
+```
+
+```yaml
+spring:
+  datasource:
+    username: root
+    password: 123456
+    url: jdbc:mysql://192.168.19.19:3306/jdbc
+    driver-class-name: com.mysql.cj.jdbc.Driver
+```
+
+效果：
+
+​		默认是用 `com.zaxxer.hikari.HikariDataSource` 作为数据源；
+
+​		数据源的相关配置都在 DataSourceProperties里面；
+
+自动配置原理：
+
+org.springframework.boot.autoconfigure.jdbc：
+
