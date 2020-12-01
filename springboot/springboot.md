@@ -2154,3 +2154,195 @@ schema-*.sql 、 data-*.sql
 
 5、操作数据库：自动配置jdbcTemplate
 
+```yaml
+spring:
+  datasource:
+    username: root
+    password: Jlu@123abc
+    url: jdbc:mysql://192.168.4.1:3306/jdbc
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    initialization-mode: always
+    schema:
+      - classpath:department.sql
+```
+
+
+
+## 2、整合Druid数据源
+
+```java
+@Configuration
+public class DruidConfig {
+
+    @ConfigurationProperties(prefix = "spring.datasource")
+
+    @Bean
+    public DataSource druid() {
+        return new DruidDataSource();
+    }
+
+    // 配置Druid的监控
+    // 1、配置一个管理后台的Servlet
+    @Bean
+    public ServletRegistrationBean statViewServlet() {
+        ServletRegistrationBean bean = new ServletRegistrationBean(new StatViewServlet(), "/druid/*");
+        Map<String,String> initParams = new HashMap<>();
+
+        initParams.put("loginUsername","admin");
+        initParams.put("loginPassword","123456");
+        initParams.put("allow",""); // 默认就是允许所有访问
+        initParams.put("deny","192.168.15.21"); // 拒绝访问
+        bean.setInitParameters(initParams);
+        return bean;
+    }
+
+
+    // 2、配置一个web监控的filter
+    @Bean
+    public FilterRegistrationBean webStatFilter() {
+        FilterRegistrationBean bean = new FilterRegistrationBean();
+        bean.setFilter(new WebStatFilter());
+
+        Map<String,String> initParams = new HashMap<>();
+        initParams.put("exclusions","*.js,*.css,/druid/*");
+
+        bean.setInitParameters(initParams);
+
+        bean.setUrlPatterns(Arrays.asList("/*"));
+
+        return bean;
+    }
+}
+```
+
+## 3、整合MyBatis
+
+```java
+<dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>2.1.4</version>
+        </dependency>
+```
+
+步骤：
+
+​		1）、配置数据源相关属性（见上一节Druid）
+
+​		2）、给数据库建表
+
+​		3）、创建JavaBean
+
+​		4）、注解版
+
+```java
+// 指定这是一个操作数据库的mapper
+@Mapper
+public interface DepartmentMapper {
+
+    @Select("select * from department where id =#{id}")
+    public Department getDeptById(Integer id);
+
+    @Delete("delete from department where id=#{id}")
+    public int deleteDeptById(Integer id);
+
+    @Options(useGeneratedKeys = true,keyProperty = "id")
+    @Insert("insert into department(departmentName) values(#{departmentName})")
+    public int insertDept(Department department);
+
+    @Update("update department set departmentName=#{departmentName} where id=#{id}")
+    public int updateDept(Department department);
+}
+```
+
+问题：
+
+自定义MyBatis的配置规则；给容器中添加一个ConfigurationCustomizer;
+
+```java
+@org.springframework.context.annotation.Configuration
+public class MyBatisConfig {
+
+    @Bean
+    public void configurationCustomizer() {
+        return new ConfigurationCustomizer() {
+
+            @Override
+            public void customize(Configuration configuration) {
+                configuration.setMapUnderscoreToCamelCase(true);
+            }
+        };
+    }
+}
+```
+
+
+
+```java
+// 使用MapperScan批量扫描所有的Mapper接口;
+@MapperScan(value = "com.atguigu.springboot.mapper")
+```
+
+配置文件版
+
+```xml
+mybatis:
+  config-location: classpath:mybatis/mybatis-config.xml 	指定全局配置文件的位置
+  mapper-locations: classpath:mybatis/mapper/*.xml 指定sql映射文件的位置
+```
+
+## 4、整合SpringData JPA
+
+1. SpringData简介
+
+2. 整合SpringData JPA
+
+JPA:ORM（Object Relational Mapping）；
+
+（1）编写一个实体类（be an）和数据表进行映射，并且配置映射关系
+
+```java
+// 使用JPA注解配置映射关系
+@Entity // 告诉JPA这是一个实体类（和数据表映射的类）
+@Table(name = "tbl_user") // @Table来指定和哪个数据表对应;如果省略默认表名就是user
+public class User {
+
+    @Id // 这是一个主键
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // 自增主键
+    private Integer id;
+
+    @Column(name = "last_name", length = 50) // 这是和数据表对应额度一个列
+    private String lastName;
+
+    @Column // 省略默认列名就是属性名
+    private String email;
+```
+
+（2）编写一个Dao接口来操作实体类对应的数据表 （Repository）
+
+```java
+// 继承JpaRepository来完成对数据库的操作
+public interface UserRepository extends JpaRepository<User,Integer> {
+}
+```
+
+（3）基本的配置properties
+
+```yam
+spring:  
+  jpa:
+    hibernate:
+      # 更新或者创建数据表结构
+      ddl-auto: update
+    # 控制台显示sql
+    show-sql: true
+```
+
+
+
+启动流程：
+
+1、创建SpringApplication对象
+
+2、允许run方法
+
