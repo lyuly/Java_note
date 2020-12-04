@@ -70,6 +70,9 @@
   - [4、docker常用命令&操作](#4docker%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4%E6%93%8D%E4%BD%9C)
 - [六、SpringBoot与数据访问](#%E5%85%ADspringboot%E4%B8%8E%E6%95%B0%E6%8D%AE%E8%AE%BF%E9%97%AE)
   - [1、JDBC](#1jdbc)
+  - [2、整合Druid数据源](#2%E6%95%B4%E5%90%88druid%E6%95%B0%E6%8D%AE%E6%BA%90)
+  - [3、整合MyBatis](#3%E6%95%B4%E5%90%88mybatis)
+  - [4、整合SpringData JPA](#4%E6%95%B4%E5%90%88springdata-jpa)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
